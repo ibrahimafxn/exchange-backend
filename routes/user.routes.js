@@ -1,38 +1,77 @@
-// routes/user.routes.js
+// user.routes.js
 const express = require('express');
 const router = express.Router();
 const UserController = require('../controllers/user.controller');
-const verifyAccessToken = require('../middlewares/verifyAccessToken.middleware'); // si protégé
+const auth = require('../middlewares/auth.middleware');
+const authorize = require('../middlewares/authorize.middleware');
+const ROLES = require('../config/roles');
 
-// Public route for uniqueness check (could be protected depending needs)
+// Vérif d’unicité : peut rester public ou être protégé selon ton besoin
 router.post('/is-unique', UserController.isUnique);
 
-// Create (protected)
-router.post('/', /* verifyAccessToken, */ UserController.createValidators, UserController.create);
+// Création (ex : admin ou dirigeant uniquement)
+router.post(
+  '/',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.createValidators,
+  UserController.create
+);
 
-// List + query
-router.get('/', /* verifyAccessToken, */ UserController.list);
+// Liste
+router.get(
+  '/',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.list
+);
 
 // Get by id
-router.get('/:id', /* verifyAccessToken, */ UserController.getById);
-
-// Get by email (optional)
-router.get('/email/:email', /* verifyAccessToken, */ UserController.getByEmail);
-
-// Update
-router.put('/:id', /* verifyAccessToken, */ UserController.update);
+// (la ligne est abrégée dans ton fichier original, mais l’idée est la même)
+router.get(
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.getById // adapte au vrai nom de ta méthode
+);
 
 // Delete
-router.delete('/:id', /* verifyAccessToken, */ UserController.remove);
+router.delete(
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN]),
+  UserController.remove
+);
 
-// Password change
-router.put('/:id/password', /* verifyAccessToken, */ UserController.setPassword);
+// Password change (l’utilisateur lui-même ou un admin – à adapter plus tard)
+router.put(
+  '/:id/password',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.setPassword
+);
 
-// Give access (create username/password)
-router.post('/:id/give-access', /* verifyAccessToken, */ UserController.giveAccess);
+// Give access
+router.post(
+  '/:id/give-access',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.giveAccess
+);
 
 // Assign depot / vehicle
-router.post('/:id/assign-depot', /* verifyAccessToken, */ UserController.assignDepot);
-router.post('/:id/assign-vehicle', /* verifyAccessToken, */ UserController.assignVehicle);
+router.post(
+  '/:id/assign-depot',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  UserController.assignDepot
+);
+
+router.post(
+  '/:id/assign-vehicle',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.assignVehicle
+);
 
 module.exports = router;

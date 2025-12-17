@@ -3,42 +3,57 @@ const RefreshToken = require('../models/refreshToken.model');
 
 /**
  * Simple service pour manipuler les refresh tokens.
- * Pour production : ajoute hashing + TTL index + transactions si possible.
+ * (le schéma attend `user`, pas `userId`)
  */
 
-async function saveRefreshToken({ token, userId, expiresAt, role }) {
-  const doc = new RefreshToken({ token, userId, expiresAt, role });
-  return doc.save();
+async function saveRefreshToken({ token, userId, expiresAt, role, userAgent, ip }) {
+    const doc = new RefreshToken({
+        token,
+        user: userId,          // ✅ IMPORTANT: user (ObjectId)
+        expiresAt,
+        // champs optionnels du schéma
+        userAgent,
+        ip
+    });
+    return doc.save();
 }
 
 async function findByToken(token) {
-  return RefreshToken.findOne({ token }).lean();
+    // ✅ pas lean si tu veux accéder à rec.user (ObjectId) et rec.save,
+    // mais lean est OK si tu ne modifies pas l'objet.
+    return RefreshToken.findOne({ token });
 }
 
 async function invalidateToken(token) {
-  return RefreshToken.deleteOne({ token });
+    return RefreshToken.deleteOne({ token });
 }
 
 /**
- * replaceRefreshToken(oldToken, newData)
- * - supprime l'ancien token et enregistre le nouveau
- * - implémentation simple (non-transactionnelle)
+ * replaceRefreshToken(oldToken, newToken, newExpiresAt)
+ * - remplace le token de manière simple (non-transactionnelle)
  */
-async function replaceRefreshToken(oldToken, { token: newToken, expiresAt }) {
-  const rec = await RefreshToken.findOne({ token: oldToken });
-  if (!rec) throw new Error('refresh token not found');
-  const userId = rec.userId;
-  const role = rec.role;
-  // delete old
-  await RefreshToken.deleteOne({ token: oldToken });
-  // save new
-  const doc = new RefreshToken({ token: newToken, userId, role, expiresAt });
-  return doc.save();
+async function replaceRefreshToken(oldToken, newToken, newExpiresAt) {
+    const rec = await RefreshToken.findOne({ token: oldToken });
+    if (!rec) throw new Error('refresh token not found');
+
+    const user = rec.user;
+
+    // delete old
+    await RefreshToken.deleteOne({ token: oldToken });
+
+    // save new
+    const doc = new RefreshToken({
+        token: newToken,
+        user,                 // ✅ IMPORTANT
+        expiresAt: newExpiresAt
+    });
+
+    return doc.save();
 }
 
 module.exports = {
-  saveRefreshToken,
-  findByToken,
-  invalidateToken,
-  replaceRefreshToken
+    saveRefreshToken,
+    findByToken,
+    invalidateToken,
+    replaceRefreshToken
 };

@@ -11,7 +11,9 @@ const UserService = require('../services/user.service');
 exports.createValidators = [
   body('firstName').isString().notEmpty(),
   body('email').isEmail(),
-  body('password').isLength({ min: 6 })
+    body('password')
+        .optional({ checkFalsy: true })
+        .isLength({ min: 6 })
 ];
 
 function handleValidation(req, res) {
@@ -66,7 +68,8 @@ exports.getByEmail = async (req, res) => {
 exports.list = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.q) filter.q = req.query.q;
+    const q = req.query.q || req.query.search;
+    if (q) filter.q = q;
     if (req.query.role) filter.role = req.query.role;
 
     const opts = {

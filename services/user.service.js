@@ -59,10 +59,11 @@ module.exports = {
             const payload = { ...data };
 
             if (!payload.password) {
+                delete data.password;
                 throw new Error("Password manquant pour la création utilisateur.");
+            }else {
+                payload.password = await bcrypt.hash(payload.password, SALT_ROUNDS);
             }
-
-            payload.password = await bcrypt.hash(payload.password, SALT_ROUNDS);
 
             const user = new User(payload);
             const saved = await user.save();
