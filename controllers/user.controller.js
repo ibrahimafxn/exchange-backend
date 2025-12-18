@@ -15,6 +15,19 @@ exports.createValidators = [
         .optional({ checkFalsy: true })
         .isLength({ min: 6 })
 ];
+// Dans controllers/user.controller.js
+exports.updateValidators = [
+  body('firstName').optional().isString().notEmpty(),
+  body('lastName').optional().isString(),
+  body('email').optional().isEmail(),
+  body('phone').optional().isString(),
+  body('role').optional().isString(),
+  body('idDepot').optional({ checkFalsy: true }),
+  body('assignedVehicle').optional({ checkFalsy: true }),
+
+  // surtout : password optionnel si jamais il arrive
+  body('password').optional({ checkFalsy: true }).isLength({ min: 6 })
+];
 
 function handleValidation(req, res) {
   const errors = validationResult(req);

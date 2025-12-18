@@ -41,6 +41,18 @@ function isId(id) {
     return mongoose.Types.ObjectId.isValid(id);
 }
 
+function generateDefaultPassword(user) {
+  const first = (user.firstName || '').toLowerCase();
+  const last = (user.lastName || '').toLowerCase();
+
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+
+  return `${first}${last}${day}${month}`;
+}
+
+
 /* -------------------------------------------------------------------------- */
 /*                                   SERVICE                                  */
 /* -------------------------------------------------------------------------- */
@@ -55,23 +67,25 @@ module.exports = {
      * - Vérifie unicité des champs
      */
     async createUser(data = {}) {
-        try {
-            const payload = { ...data };
+      try {
+        const payload = { ...data };
 
-            if (!payload.password) {
-                delete data.password;
-                throw new Error("Password manquant pour la création utilisateur.");
-            }else {
-                payload.password = await bcrypt.hash(payload.password, SALT_ROUNDS);
-            }
+        let rawPassword = payload.password;
 
-            const user = new User(payload);
-            const saved = await user.save();
-
-            return sanitize(saved);
-        } catch (err) {
-            throw handleDuplicate(err);
+        // 🔐 Si aucun password → génération automatique
+        if (!rawPassword) {
+          rawPassword = generateDefaultPassword(payload);
         }
+
+        payload.password = await bcrypt.hash(rawPassword, SALT_ROUNDS);
+
+        const user = new User(payload);
+        const saved = await user.save();
+
+        return sanitize(saved);
+      } catch (err) {
+        throw handleDuplicate(err);
+      }
     },
 
     /* ============================== READ ================================== */
@@ -279,4 +293,6 @@ module.exports = {
 
         return sanitize(updated);
     }
+
+
 };

@@ -18,6 +18,16 @@ router.post(
   UserController.create
 );
 
+// Update (édition utilisateur)
+router.put(
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  UserController.updateValidators,
+  UserController.update
+);
+
+
 // Liste
 router.get(
   '/',

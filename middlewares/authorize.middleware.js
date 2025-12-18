@@ -2,15 +2,19 @@
  * Vérifie que l'utilisateur possède le rôle requis.
  * allowedRoles = [] → juste vérifier que l'utilisateur est connecté.
  */
-module.exports = function authorize(allowedRoles = []) {
-    return (req, res, next) => {
-        const user = req.user;
-        if (!user) return res.status(401).json({ message: 'Utilisateur non authentifié' });
+// middlewares/authorize.middleware.js
+module.exports = (allowedRoles = []) => {
+  return (req, res, next) => {
+    const userRole = req.user?.role;
 
-        if (allowedRoles.length && !allowedRoles.includes(user.role)) {
-            return res.status(403).json({ message: 'Accès refusé' });
-        }
+    if (!userRole) {
+      return res.status(401).json({ message: 'Non authentifié' });
+    }
 
-        next();
-    };
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    next();
+  };
 };
