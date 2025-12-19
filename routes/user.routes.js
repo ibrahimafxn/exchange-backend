@@ -49,7 +49,7 @@ router.get(
 router.delete(
   '/:id',
   auth,
-  authorize([ROLES.ADMIN]),
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
   UserController.remove
 );
 

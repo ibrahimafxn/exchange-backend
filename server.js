@@ -43,6 +43,7 @@ app.use(cookieParser());
 app.use('/api/admin', require('./routes/admin.routes'));
 // Routes API
 app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/depots', require('./routes/depot.routes'));
 app.use('/api/users', require('./routes/user.routes'));
 app.use('/api/materials', require('./routes/material.routes'));
 app.use('/api/consumables', require('./routes/consumable.routes'));

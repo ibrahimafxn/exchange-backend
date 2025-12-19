@@ -84,6 +84,7 @@ exports.list = async (req, res) => {
     const q = req.query.q || req.query.search;
     if (q) filter.q = q;
     if (req.query.role) filter.role = req.query.role;
+    if (req.query.depot) filter.idDepot = req.query.depot;
 
     const opts = {
       page: req.query.page || 1,
