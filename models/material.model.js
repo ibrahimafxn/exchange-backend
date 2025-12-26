@@ -7,12 +7,16 @@
 const mongoose = require('mongoose');
 
 const materialSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    category: { type: String }, // ex: 'Outil', 'Equipement'
-    serial: { type: String, index: true, sparse: true },
-    quantity: { type: Number, default: 0 }, // total en stock
-    assignedQuantity: { type: Number, default: 0 }, // quantité attribuée
-    idDepot: { type: mongoose.Schema.Types.ObjectId, ref: 'Depot', default: null }
-}, { timestamps: true });
+  name: {type: String, required: true},
+  category: {
+    type: String,
+    enum: ['Outil', 'EPI'],
+    default: 'Outil',
+    required: true
+  },
+  quantity: {type: Number, default: 0}, // total en stock
+  assignedQuantity: {type: Number, default: 0}, // quantité attribuée
+  idDepot: {type: mongoose.Schema.Types.ObjectId, ref: 'Depot', default: null}
+}, {timestamps: true});
 
 module.exports = mongoose.model('Material', materialSchema);

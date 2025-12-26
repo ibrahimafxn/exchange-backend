@@ -1,7 +1,7 @@
 // controllers/user.controller.js
 const { validationResult, body } = require('express-validator');
 const UserService = require('../services/user.service');
-
+const User = require('../models/user.model');
 /**
  * Controller pour gérer les utilisateurs.
  * Chaque méthode renvoie JSON { success: true, data } ou status d'erreur.
@@ -80,23 +80,49 @@ exports.getByEmail = async (req, res) => {
 /* ------------------------- LIST --------------------------- */
 exports.list = async (req, res) => {
   try {
+    const q = String(req.query.q || '').trim();
+    const role = String(req.query.role || '').trim();
+    const depot = String(req.query.depot || req.query.idDepot || '').trim();
+
+    const page = parseInt(String(req.query.page || '1'), 10);
+    const limit = parseInt(String(req.query.limit || '25'), 10);
+
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 25;
+    const skip = (safePage - 1) * safeLimit;
+
     const filter = {};
-    const q = req.query.q || req.query.search;
-    if (q) filter.q = q;
-    if (req.query.role) filter.role = req.query.role;
-    if (req.query.depot) filter.idDepot = req.query.depot;
 
-    const opts = {
-      page: req.query.page || 1,
-      limit: req.query.limit || 25,
-      sort: req.query.sort || { createdAt: -1 }
-    };
+    if (role) filter.role = role;
+    if (depot) filter.idDepot = depot;
 
-    const result = await UserService.list(filter, opts);
-    res.json({ success: true, data: result });
+    if (q) {
+      const r = new RegExp(q, 'i');
+      filter.$or = [
+        { firstName: r },
+        { lastName: r },
+        { email: r },
+        { phone: r },
+        { username: r }
+      ];
+    }
+
+    console.log('[users.list] query =', req.query);
+    console.log('[users.list] computed filter =', filter);
+
+    const [total, items] = await Promise.all([
+      User.countDocuments(filter),
+      User.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(safeLimit)
+        .lean()
+    ]);
+
+    return res.json({ success: true, data: { total, page: safePage, limit: safeLimit, items } });
   } catch (err) {
     console.error('user.list error', err);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    return res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 };
 

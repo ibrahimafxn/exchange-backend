@@ -1,119 +1,151 @@
-/**
- * services/vehicle.service.js (transactionnel)
- * - assignVehicleTransactional(vehicleId, techId, author)
- * - releaseVehicleTransactional(vehicleId, depotId, author)
- */
-
+// services/vehicle.service.js
 const mongoose = require('mongoose');
-const Vehicle = require('../models/Vehicle');
-const User = require('../models/User');
-const Attribution = require('../models/Attribution');
-const AttributionHistory = require('../models/AttributionHistory');
+const Vehicle = require('../models/vehicle.model');
+const Attribution = require('../models/attribution.model');
+const AttributionHistory = require('../models/attributionHistory.model');
 
-async function assignVehicleTransactional(vehicleId, techId, author = null) {
+/**
+ * Assigne un véhicule à un technicien (transaction + historique)
+ */
+async function assignVehicleTransactional(vehicleId, techId, author = null, note = null) {
   const session = await mongoose.startSession();
   try {
     let result = null;
+
     await session.withTransaction(async () => {
-      const vehicle = await Vehicle.findById(vehicleId).session(session);
-      if (!vehicle) throw new Error('Véhicule introuvable');
+      const v = await Vehicle.findById(vehicleId).session(session);
+      if (!v) throw new Error('Véhicule introuvable');
 
-      const user = await User.findById(techId).session(session);
-      if (!user) throw new Error('Technicien introuvable');
+      // Snapshot BEFORE
+      const before = v.toObject();
 
-      // Mise à jour matérialisée
-      vehicle.idTech = techId;
-      vehicle.idDepot = null;
-      await vehicle.save({ session });
+      // règles simples
+      if (v.assignedTo) throw new Error('Véhicule déjà assigné');
+      v.assignedTo = techId;
+      // le véhicule n'est plus "au dépôt" si utilisé
+      // (tu peux décider de garder idDepot, mais généralement on le retire)
+      v.idDepot = null;
 
-      // Mettre à jour l'utilisateur (assignedVehicle) — optionnel selon ton modèle
-      user.assignedVehicle = vehicle._id;
-      await user.save({ session });
+      await v.save({ session });
 
-      // Créer Attribution + History
       const attrib = await Attribution.create([{
         resourceType: 'VEHICLE',
-        resourceId: vehicle._id,
+        resourceId: v._id,
         resourceModel: 'Vehicle',
         quantity: 1,
-        fromDepot: null,
+        fromDepot: before.idDepot || null,
         toUser: techId,
         action: 'ATTRIBUTION',
-        author
+        author,
+        note
       }], { session });
 
       await AttributionHistory.create([{
         attribution: attrib[0]._id,
         snapshot: {
-          attribution: attrib[0].toObject(),
-          resourceAfter: vehicle.toObject(),
+          action: 'ASSIGN_VEHICLE',
+          before,
+          after: v.toObject(),
+          author,
+          note,
           timestamp: new Date()
         }
       }], { session });
 
-      result = { vehicle, user, attribution: attrib[0] };
+      result = { vehicle: v, attribution: attrib[0] };
     });
+
     return result;
-  } catch (err) {
-    console.error('assignVehicleTransactional error', err.message || err);
-    throw err;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 }
 
-async function releaseVehicleTransactional(vehicleId, depotId, author = null) {
+/**
+ * Libère un véhicule et le remet dans un dépôt (transaction + historique)
+ */
+async function releaseVehicleTransactional(vehicleId, depotId, author = null, note = null) {
   const session = await mongoose.startSession();
   try {
     let result = null;
+
     await session.withTransaction(async () => {
-      const vehicle = await Vehicle.findById(vehicleId).session(session);
-      if (!vehicle) throw new Error('Véhicule introuvable');
+      const v = await Vehicle.findById(vehicleId).session(session);
+      if (!v) throw new Error('Véhicule introuvable');
 
-      // Téchnicien précédent (si présent) à mettre à jour
-      const previousTechId = vehicle.idTech;
-      if (previousTechId) {
-        const prevUser = await User.findById(previousTechId).session(session);
-        if (prevUser) {
-          prevUser.assignedVehicle = null;
-          await prevUser.save({ session });
-        }
-      }
+      const before = v.toObject();
 
-      vehicle.idTech = null;
-      vehicle.idDepot = depotId;
-      await vehicle.save({ session });
+      if (!v.assignedTo) throw new Error('Véhicule non assigné');
 
-      // Créer Attribution 'REPRISE'
+      const previousUser = v.assignedTo;
+      v.assignedTo = null;
+      v.idDepot = depotId;
+
+      await v.save({ session });
+
       const attrib = await Attribution.create([{
         resourceType: 'VEHICLE',
-        resourceId: vehicle._id,
+        resourceId: v._id,
         resourceModel: 'Vehicle',
         quantity: 1,
-        fromDepot: depotId,
-        toUser: null,
+        fromDepot: before.idDepot || null,
+        toUser: previousUser,
         action: 'REPRISE',
-        author
+        author,
+        note
       }], { session });
 
       await AttributionHistory.create([{
         attribution: attrib[0]._id,
         snapshot: {
-          attribution: attrib[0].toObject(),
-          resourceAfter: vehicle.toObject(),
+          action: 'RELEASE_VEHICLE',
+          before,
+          after: v.toObject(),
+          author,
+          note,
           timestamp: new Date()
         }
       }], { session });
 
-      result = { vehicle, attribution: attrib[0] };
+      result = { vehicle: v, attribution: attrib[0] };
     });
+
     return result;
-  } catch (err) {
-    console.error('releaseVehicleTransactional error', err.message || err);
-    throw err;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 }
 
-module.exports = { assignVehicleTransactional, releaseVehicleTransactional };
+async function listHistoryByVehicle(vehicleId, opts = {}) {
+  const page = parseInt(String(opts.page || '1'), 10);
+  const limit = parseInt(String(opts.limit || '25'), 10);
+
+  const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 25;
+  const skip = (safePage - 1) * safeLimit;
+
+  const filter = { resourceType: 'VEHICLE', resourceId: vehicleId };
+
+  const [total, items] = await Promise.all([
+    Attribution.countDocuments(filter),
+    Attribution.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean()
+  ]);
+
+  return { total, page: safePage, limit: safeLimit, items };
+}
+
+module.exports = {
+  assignVehicleTransactional,
+  releaseVehicleTransactional,
+  listHistoryByVehicle,
+};
+
+
+module.exports = {
+  assignVehicleTransactional,
+  releaseVehicleTransactional,
+};

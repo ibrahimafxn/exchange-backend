@@ -74,4 +74,12 @@ router.post(
   }
 );
 
+// Détail
+router.get(
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  ctrl.getById
+);
+
 module.exports = router;

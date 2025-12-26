@@ -1,5 +1,7 @@
 # See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 .env
+exchange
+tests
 # Compiled output
 /dist
 /tmp
@@ -14,6 +16,7 @@ npm-debug.log
 yarn-error.log
 
 # IDEs and editors
+
 .idea/
 .project
 .classpath
@@ -43,4 +46,3 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
-.env

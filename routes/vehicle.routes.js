@@ -1,32 +1,24 @@
 const router = require('express').Router();
 const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/authorize.middleware');
-const ctrl = require('../controllers/vehicle.controller');
 const ROLES = require('../config/roles');
 
-router.get('/', auth, authorize(), ctrl.list);
+const ctrl = require('../controllers/vehicle.controller');
 
-router.post(
-  '/',
-  auth,
-  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
-  ctrl.create
+router.get('/', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]), ctrl.list);
+router.get('/:id', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]), ctrl.getById);
+
+router.post('/', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]), ctrl.createValidators, ctrl.create);
+router.put('/:id', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]), ctrl.update);
+router.delete('/:id', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT]), ctrl.remove);
+
+// transactions avec historique
+router.put('/:id/assign', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]), ctrl.assignValidators, ctrl.assign);
+router.put('/:id/release', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]), ctrl.releaseValidators, ctrl.release);
+
+router.get('/:id/history', auth, authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  ctrl.history
 );
 
-router.get('/:id', auth, authorize(), ctrl.get);
-
-router.put(
-  '/:id',
-  auth,
-  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
-  ctrl.update
-);
-
-router.delete(
-  '/:id',
-  auth,
-  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
-  ctrl.remove
-);
 
 module.exports = router;

@@ -51,7 +51,7 @@ async function reserveConsumableTransactional(consumableId, qty, toUser = null, 
     console.error('reserveConsumableTransactional error', err.message || err);
     throw err;
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 }
 

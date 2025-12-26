@@ -1,16 +1,22 @@
-/**
- * models/Vehicle.js
- * Véhicule exploitable par la société. La plaque (plate) doit être unique.
- */
 const mongoose = require('mongoose');
 
-const vehicleSchema = new mongoose.Schema({
-    plate: { type: String, required: true, unique: true, trim: true },
-    model: { type: String, trim: true },
-    km: { type: Number, default: 0 },
-    idDepot: { type: mongoose.Schema.Types.ObjectId, ref: 'Depot', default: null },
-    idTech: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // technicien qui a le véhicule
-    notes: { type: String }
-}, { timestamps: true });
+const vehicleSchema = new mongoose.Schema(
+  {
+    plateNumber: { type: String, required: true, trim: true, unique: true },
+    brand: { type: String, trim: true, default: undefined },
+    model: { type: String, trim: true, default: undefined},
+    year: { type: Number, default: undefined },
+    state: { type: String, default: undefined },
+
+    // Dépôt où il se trouve si non assigné
+    idDepot: { type: mongoose.Schema.Types.ObjectId, ref: 'Depot', default: undefined },
+
+    // Technicien en utilisation
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: undefined },
+
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: undefined },
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

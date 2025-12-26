@@ -59,4 +59,13 @@ router.post(
   DepotController.assignManager
 );
 
+// Get depot stats
+router.get(
+  '/:id/stats',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  DepotController.stats
+);
+
+
 module.exports = router;

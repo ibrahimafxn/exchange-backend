@@ -2,6 +2,10 @@ const { validationResult, body, param } = require('express-validator');
 const mongoose = require('mongoose');
 const Depot = require('../models/depot.model');
 const User = require('../models/user.model');
+const Consumable = require('../models/consumable.model');
+const Material = require('../models/material.model');
+const Vehicle = require('../models/vehicle.model');
+
 /* -------------------------------------------------
    Helpers
 ------------------------------------------------- */
@@ -290,6 +294,41 @@ exports.assignManager = async (req, res) => {
     return res.json({ success: true, data: updated });
   } catch (err) {
     console.error('depot.assignManager error', err);
+    return res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+};
+
+// stats du dépôt
+exports.stats = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID dépôt invalide' });
+    }
+
+    const depotExists = await Depot.exists({ _id: id });
+    if (!depotExists) {
+      return res.status(404).json({ success: false, message: 'Dépôt introuvable' });
+    }
+
+    const [consumablesCount, materialsCount, vehiclesCount, techniciansCount] = await Promise.all([
+      Consumable.countDocuments({ idDepot: id }),
+      Material.countDocuments({ idDepot: id }),
+      Vehicle.countDocuments({ idDepot: id }),
+      User.countDocuments({ idDepot: id, role: 'TECHNICIEN' }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        consumables: consumablesCount,
+        materials: materialsCount,
+        vehicles: vehiclesCount,
+        technicians: techniciansCount,
+      },
+    });
+  } catch (err) {
+    console.error('depot.stats error', err);
     return res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 };

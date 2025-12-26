@@ -1,36 +1,50 @@
-const express = require('express');
-const router = express.Router();
-const asyncHandler = require('../middlewares/asyncHandler.middleware');
-const validateObjectId = require('../middlewares/validateObjectId.middleware');
-const authenticate = require('../middlewares/auth.middleware');
+// routes/material.routes.js
+const router = require('express').Router();
+
+const auth = require('../middlewares/auth.middleware');
 const authorize = require('../middlewares/authorize.middleware');
-const MaterialService = require('../services/material.service');
 const ROLES = require('../config/roles');
 
+const MaterialController = require('../controllers/material.controller');
+
+// LIST (paginée + filtres)
 router.get(
   '/',
-  authenticate,
-  authorize([ROLES.ADMIN, ROLES.GESTION_DEPOT]),
-  asyncHandler(async (req, res) => {
-    const list = await MaterialService.listMaterials();
-    res.json({ success: true, data: list });
-  })
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  MaterialController.list
 );
 
+// GET BY ID
+router.get(
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  MaterialController.get
+);
+
+// CREATE
+router.post(
+  '/',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  MaterialController.create
+);
+
+// UPDATE
 router.put(
-  '/:id/adjust',
-  authenticate,
-  authorize([ROLES.ADMIN, ROLES.GESTION_DEPOT]),
-  validateObjectId('id'),
-  asyncHandler(async (req, res) => {
-    const { delta, action, author, createAttribution } = req.body;
-    const result = await MaterialService.adjustQuantityTransactional(req.params.id, delta, {
-      action,
-      author,
-      createAttribution,
-    });
-    res.json({ success: true, data: result });
-  })
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT, ROLES.GESTION_DEPOT]),
+  MaterialController.update
+);
+
+// DELETE (souvent plus restrictif)
+router.delete(
+  '/:id',
+  auth,
+  authorize([ROLES.ADMIN, ROLES.DIRIGEANT]),
+  MaterialController.remove
 );
 
 module.exports = router;

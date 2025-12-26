@@ -34,6 +34,8 @@ function handleValidation(req, res) {
  * Query: q, page, limit, depot|idDepot
  * Réponse: { success:true, data:{ total,page,limit,items } }
  * ----------------------------- */
+// controllers/consumable.controller.js
+
 exports.list = async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
@@ -46,28 +48,38 @@ exports.list = async (req, res) => {
     // compat: accepte ?depot=... ou ?idDepot=...
     const depot = String(req.query.depot || req.query.idDepot || '').trim();
 
+    /** @type {{[key:string]: any}} */
     const filter = {};
 
+    // Filtre dépôt (si fourni)
     if (depot) {
-      // ton modèle a probablement idDepot
+      // ton schema consumable a "idDepot"
       filter.idDepot = depot;
     }
 
+    // Recherche texte simple
     if (q) {
       const r = new RegExp(q, 'i');
-      // adapte si ton schema contient d'autres champs (ref, unit...)
       filter.$or = [
         { name: r },
-        { unit: r }
+        { unit: r },
+        // tu peux ajouter ici d'autres champs si besoin (ref, fournisseur, etc.)
       ];
     }
 
     const [total, items] = await Promise.all([
       Consumable.countDocuments(filter),
+
       Consumable.find(filter)
         .sort({ createdAt: -1, name: 1 })
         .skip(skip)
         .limit(safeLimit)
+
+        // ✅ IMPORTANT : populate du dépôt pour avoir le nom côté front
+        // => idDepot devient un objet { _id, name, city } (au lieu d'une string)
+        .populate('idDepot', 'name city')
+
+        // ✅ lean() après populate : renvoie des objets JS simples
         .lean()
     ]);
 
@@ -167,3 +179,25 @@ exports.remove = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 };
+
+// GET /api/consumables/:id
+exports.getById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doc = await Consumable.findById(id)
+      // ✅ pour récupérer le nom du dépôt directement
+      .populate('idDepot', 'name city')
+      .lean();
+
+    if (!doc) {
+      return res.status(404).json({ success: false, message: 'Consommable non trouvé' });
+    }
+
+    return res.json({ success: true, data: doc });
+  } catch (err) {
+    console.error('consumable.getById error', err);
+    return res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+};
+
